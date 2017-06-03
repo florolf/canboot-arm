@@ -4,7 +4,7 @@
 #include <libopencm3/stm32/flash.h>
 
 #define TIMEOUT 1000000
-#define APP_START 0x8000400
+#define APP_START 0x8000800
 #define CHIP_TYPE 0
 
 #define CANx BX_CAN_BASE
