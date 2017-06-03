@@ -1,6 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -11,17 +8,7 @@
 #include <errno.h>
 #include <poll.h>
 
-#define logm(format, ...) do { fprintf(stderr, format "\n", ##__VA_ARGS__); } while(0)
-#define die(format, ...) do { logm(format, ##__VA_ARGS__); exit(EXIT_FAILURE); } while(0)
-#define pdie(string, ...) do { perror(string); exit(EXIT_FAILURE); } while(0)
-
-int parse_hex(const char *s)
-{
-	if (!strncmp(s, "0x", 2))
-		s += 2;
-
-	return strtol(s, NULL, 16);
-}
+#include "common.h"
 
 static int get_ifindex(int fd, const char *ifname)
 {
@@ -81,7 +68,7 @@ int can_send(int fd, uint32_t id, uint8_t *data, uint8_t len)
 	return 0;
 }
 
-int can_recv(int fd, uint8_t data[static 8], long int timeout)
+int can_recv(int fd, uint8_t data[static 8], canid_t *id, long int timeout)
 {
 	struct pollfd pfd;
 
@@ -108,8 +95,28 @@ int can_recv(int fd, uint8_t data[static 8], long int timeout)
 		return -1;
 
 	memcpy(data, msg.data, msg.can_dlc);
+	if (id)
+		*id = msg.can_id;
 
 	return msg.can_dlc;
+}
+
+int can_filter(int fd, uint32_t id)
+{
+	struct can_filter filter;
+
+	filter.can_id = id | CAN_EFF_FLAG;
+	filter.can_mask = (CAN_EFF_FLAG | CAN_EFF_MASK);
+
+	return setsockopt(fd, SOL_CAN_RAW, CAN_RAW_FILTER, &filter, sizeof(filter));
+}
+
+static void put_le32(uint8_t *buf, uint32_t val)
+{
+	for (int i = 0; i < 4; i++) {
+		*buf++ = val & 0xFF;
+		val >>= 8;
+	}
 }
 
 int bl_get_chip_type(int fd, uint32_t id)
@@ -120,18 +127,10 @@ int bl_get_chip_type(int fd, uint32_t id)
 	if (can_send(fd, id, buf, 1) < 0)
 		return -1;
 
-	if (can_recv(fd, buf, 1000) != 1)
+	if (can_recv(fd, buf, NULL, 1000) != 1)
 		return -1;
 
 	return buf[0];
-}
-
-void put_le32(uint8_t *buf, uint32_t val)
-{
-	for (int i = 0; i < 4; i++) {
-		*buf++ = val & 0xFF;
-		val >>= 8;
-	}
 }
 
 int bl_set_pointer(int fd, uint32_t id, uint32_t addr)
@@ -144,7 +143,7 @@ int bl_set_pointer(int fd, uint32_t id, uint32_t addr)
 	if (can_send(fd, id, buf, 8) < 0)
 		return -1;
 
-	if (can_recv(fd, buf, 1000) != 1)
+	if (can_recv(fd, buf, NULL, 1000) != 1)
 		return -1;
 
 	return buf[0] == 0;
@@ -172,7 +171,7 @@ int bl_write_mem(int fd, uint32_t id, uint8_t *data, size_t len)
 		if (can_send(fd, id, buf, 8) < 0)
 			return -1;
 
-		if (can_recv(fd, buf, 1000) != 1)
+		if (can_recv(fd, buf, NULL, 1000) != 1)
 			return -1;
 
 		if (buf[0] != 0)
@@ -180,52 +179,4 @@ int bl_write_mem(int fd, uint32_t id, uint8_t *data, size_t len)
 	}
 
 	return 0;
-}
-
-int can_filter(int fd, uint32_t id)
-{
-	struct can_filter filter;
-
-	filter.can_id = id | CAN_EFF_FLAG;
-	filter.can_mask = (CAN_EFF_FLAG | CAN_EFF_MASK);
-
-	return setsockopt(fd, SOL_CAN_RAW, CAN_RAW_FILTER, &filter, sizeof(filter));
-}
-
-int main(int argc, char **argv)
-{
-	if (argc < 4)
-		die("usage: %s can-interface can-address load-address file", argv[0]);
-
-	const char *can_if = argv[1];
-	uint32_t can_address = parse_hex(argv[2]);
-	uint32_t load_address = parse_hex(argv[3]);
-
-	FILE *f = fopen(argv[4], "r");
-	if (!f)
-		pdie("opening file failed");
-
-	int fd = can_sock(can_if);
-	if (fd < 0)
-		die("creating can socket failed");
-
-	if (can_filter(fd, can_address))
-		pdie("setting can filter failed");
-
-	uint8_t membuf[4096];
-	memset(membuf, 0, sizeof(membuf));
-
-	int cnt;
-	cnt = fread(membuf, 1, sizeof(membuf), f);
-	if (cnt < 0)
-		pdie("fread failed");
-
-	cnt = (cnt + 3) & (~3);
-
-	bl_set_pointer(fd, can_address, load_address);
-
-	printf("writing %d bytes\n", cnt);
-	printf("%d\n", bl_write_mem(fd, can_address, membuf, cnt));
-
-	bl_set_pointer(fd, can_address, load_address | 1);
 }
