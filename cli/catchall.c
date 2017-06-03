@@ -40,7 +40,8 @@ int main(int argc, char **argv)
 			continue;
 
 		id &= CAN_EFF_MASK;
-		logm("new client with ID %08x", id);
+		logm("new client with ID %08x and rev %02x%02x%02x%02x",
+		     id, buf[4], buf[5], buf[6], buf[7]);
 
 		buf[0] = 0x00;
 		if (can_send(fd, id, buf, 1) < 0)
