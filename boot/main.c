@@ -241,8 +241,8 @@ void main(void)
 	init_can();
 
 	p = (uint8_t*)APP_START;
-	h = 0xEDE9B007;
-	l = GIT_REV;
+	l = 0x07B0E9ED;
+	h = GIT_REV;
 	len = 8;
 
 	do_tx();
