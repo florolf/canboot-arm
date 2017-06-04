@@ -4,6 +4,7 @@
 #include <libopencm3/stm32/flash.h>
 
 #define TIMEOUT 1000000
+#define TX_TIMEOUT (TIMEOUT * 10)
 #define APP_START 0x8000800
 #define CHIP_TYPE 0
 
@@ -109,13 +110,15 @@ uint8_t *p;
 
 static void do_tx(void)
 {
+	uint32_t timeout = TX_TIMEOUT;
+
 	CAN_TDT0R(CANx) &= ~CAN_TDTxR_DLC_MASK;
 	CAN_TDT0R(CANx) |= len;
 	CAN_TDH0R(CANx) = h;
 	CAN_TDL0R(CANx) = l;
 	CAN_TI0R(CANx) |= CAN_TIxR_TXRQ;
 
-	while (CAN_TI0R(CANx) & CAN_TIxR_TXRQ)
+	while ((CAN_TI0R(CANx) & CAN_TIxR_TXRQ) && (timeout-- > 0))
 		;
 }
 
