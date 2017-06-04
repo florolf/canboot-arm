@@ -38,7 +38,7 @@ static void init_clocks(void)
 
 	RCC_CFGR |= RCC_CFGR_SW_HSE;
 
-	RCC_AHBENR |= RCC_AHBENR_IOPBEN;
+	RCC_AHBENR |= RCC_AHBENR_IOPAEN | RCC_AHBENR_IOPBEN;
 	RCC_APB1ENR |= RCC_APB1ENR_CANEN;
 }
 
@@ -247,6 +247,10 @@ void main(void)
 	l = 0x07B0E9ED;
 	h = GIT_REV;
 	len = 8;
+
+	GPIOA_MODER |= GPIO_MODE(11, GPIO_MODE_OUTPUT);
+	GPIOB_MODER |= GPIO_MODE(14, GPIO_MODE_OUTPUT) |
+	               GPIO_MODE(15, GPIO_MODE_OUTPUT);
 
 	do_tx();
 
