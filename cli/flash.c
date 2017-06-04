@@ -33,10 +33,9 @@ int main(int argc, char **argv)
 		pdie("setting can filter failed");
 
 	int offset = 0;
+	uint8_t buf[8];
 
 	while (1) {
-		uint8_t buf[8];
-
 		int cnt;
 		cnt = fread(&buf[2], 1, 6, f);
 		if (cnt < 0)
@@ -74,6 +73,10 @@ int main(int argc, char **argv)
 
 		offset += cnt;
 	}
+
+	buf[0] = 0x30;
+	if (can_send(fd, can_address, buf, 1) < 0)
+		pdie("can_send exec failed");
 
 	return EXIT_SUCCESS;
 }
