@@ -5,7 +5,10 @@
 
 #include "common.h"
 
+#define PAGE_SIZE 2048
 #define APP_START 0x8000800
+
+#define MIN(a,b) (((a) < (b)) ? (a) : (b))
 
 int parse_hex(const char *s)
 {
@@ -34,8 +37,8 @@ int main(int argc, char **argv)
 	if (can_filter(fd, can_address))
 		pdie("setting can filter failed");
 
-	int offset = 0;
-	uint8_t buf[8];
+	int offset, total_length = 0;
+	uint8_t buf[8], page[PAGE_SIZE];
 	uint32_t hash = 0;
 
 	if (bl_set_pointer(fd, can_address, APP_START))
@@ -43,43 +46,49 @@ int main(int argc, char **argv)
 
 	while (1) {
 		int cnt;
-		cnt = fread(&buf[2], 1, 6, f);
+		cnt = fread(page, 1, sizeof(page), f);
 		if (cnt < 0)
 			pdie("fread failed");
 
 		if (cnt == 0)
 			break;
 
-		jenkins_mix(&hash, &buf[2], cnt);
+		total_length += cnt;
+		jenkins_mix(&hash, page, cnt);
 
-		if (offset % 2048 == 0) {
-			logm("hitting page boundary, triggering erase");
+		logm("hitting page boundary, triggering erase");
 
-			buf[0] = 0x20;
+		buf[0] = 0x20;
 
-			if (can_send(fd, can_address, buf, 1) < 0)
-				pdie("can_send erase failed");
-
-			if (can_recv(fd, buf, NULL, 1000) != 1)
-				pdie("can_recv erase failed");
-
-			if (buf[0] != 0)
-				pdie("erase unsuccessful");
-		}
-
-		buf[0] = 0x21;
-		buf[1] = 0x0;
-
-		if (can_send(fd, can_address, buf, 2 + cnt) < 0)
-			pdie("can_send flash failed");
+		if (can_send(fd, can_address, buf, 1) < 0)
+			pdie("can_send erase failed");
 
 		if (can_recv(fd, buf, NULL, 1000) != 1)
-			pdie("can_recv flash failed");
+			pdie("can_recv erase failed");
 
 		if (buf[0] != 0)
-			pdie("flash unsuccessful");
+			pdie("erase unsuccessful");
 
-		offset += cnt;
+		offset = 0;
+		while (offset < PAGE_SIZE) {
+			int writelen = MIN(PAGE_SIZE - offset, 6);
+
+			buf[0] = 0x21;
+			buf[1] = 0x0;
+
+			memcpy(&buf[2], &page[offset], writelen);
+
+			if (can_send(fd, can_address, buf, 2 + writelen) < 0)
+				pdie("can_send flash failed");
+
+			if (can_recv(fd, buf, NULL, 1000) != 1)
+				pdie("can_recv flash failed");
+
+			if (buf[0] != 0)
+				pdie("flash unsuccessful");
+
+			offset += writelen;
+		}
 	}
 
 	hash = jenkins_finish(hash);
@@ -88,7 +97,7 @@ int main(int argc, char **argv)
 		die("resetting pointer failed");
 
 	uint32_t hash_out;
-	if (bl_hash(fd, can_address, offset, &hash_out) < 0)
+	if (bl_hash(fd, can_address, total_length, &hash_out) < 0)
 		die("hashing failed");
 
 	if (hash_out != hash)
