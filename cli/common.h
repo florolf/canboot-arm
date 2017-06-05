@@ -9,6 +9,10 @@
 #define die(format, ...) do { logm(format, ##__VA_ARGS__); exit(EXIT_FAILURE); } while(0)
 #define pdie(string, ...) do { perror(string); exit(EXIT_FAILURE); } while(0)
 
+void jenkins_mix(uint32_t *state, uint8_t *data, uint32_t len);
+uint32_t jenkins_finish(uint32_t state);
+uint32_t jenkins(uint8_t *data, uint32_t seed, uint32_t len);
+
 int can_sock(const char *ifname);
 int can_send(int fd, uint32_t id, uint8_t *data, uint8_t len);
 int can_recv(int fd, uint8_t data[static 8], canid_t *id, long int timeout);

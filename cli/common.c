@@ -22,6 +22,38 @@ static int get_ifindex(int fd, const char *ifname)
 	return ifr.ifr_ifindex;
 }
 
+// Jenkins One-at-a-Time hash with additive seed
+void jenkins_mix(uint32_t *state, uint8_t *data, uint32_t len)
+{
+	uint32_t i;
+
+	for (i = 0; i < len; i++) {
+		*state += data[i];
+		*state += (*state << 10);
+		*state ^= (*state >> 6);
+	}
+}
+
+uint32_t jenkins_finish(uint32_t state)
+{
+	state += (state << 3);
+	state ^= (state >> 11);
+	state += (state << 15);
+
+	return state;
+}
+
+uint32_t jenkins(uint8_t *data, uint32_t seed, uint32_t len)
+{
+	uint32_t hash, i;
+
+	hash = seed;
+
+	jenkins_mix(&hash, data, len);
+
+	return jenkins_finish(hash);
+}
+
 int can_sock(const char *ifname)
 {
 	int fd;
