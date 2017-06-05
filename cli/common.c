@@ -151,6 +151,18 @@ static void put_le32(uint8_t *buf, uint32_t val)
 	}
 }
 
+static uint32_t get_le32(uint8_t *buf)
+{
+	uint32_t out = 0;
+
+	for (int i = 3; i >= 0; i--) {
+		out <<= 8;
+		out |= buf[i];
+	}
+
+	return out;
+}
+
 int bl_get_chip_type(int fd, uint32_t id)
 {
 	uint8_t buf[8] = {0};
@@ -209,6 +221,30 @@ int bl_write_mem(int fd, uint32_t id, uint8_t *data, size_t len)
 		if (buf[0] != 0)
 			return -1;
 	}
+
+	return 0;
+}
+
+int bl_hash(int fd, uint32_t id, uint32_t len, uint32_t *hash)
+{
+	uint8_t buf[8] = {0};
+
+	buf[0] = 0x12;
+	put_le32(&buf[4], len);
+
+	if (can_send(fd, id, buf, 8) < 0)
+		return -1;
+
+	if (can_recv(fd, buf, NULL, 1000) != 4)
+		return -1;
+
+	*hash = get_le32(buf);
+
+	if (can_recv(fd, buf, NULL, 1000) != 1)
+		return -1;
+
+	if (buf[0] != 0)
+		return -1;
 
 	return 0;
 }

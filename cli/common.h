@@ -21,4 +21,5 @@ int can_filter(int fd, uint32_t id);
 int bl_get_chip_type(int fd, uint32_t id);
 int bl_set_pointer(int fd, uint32_t id, uint32_t addr);
 int bl_exec(int fd, uint32_t id);
+int bl_hash(int fd, uint32_t id, uint32_t len, uint32_t *hash);
 int bl_write_mem(int fd, uint32_t id, uint8_t *data, size_t len);
