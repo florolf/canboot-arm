@@ -178,7 +178,7 @@ int bl_set_pointer(int fd, uint32_t id, uint32_t addr)
 	if (can_recv(fd, buf, NULL, 1000) != 1)
 		return -1;
 
-	return buf[0] == 0;
+	return buf[0] != 0;
 }
 
 int bl_exec(int fd, uint32_t id)
