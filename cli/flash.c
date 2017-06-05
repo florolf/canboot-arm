@@ -34,6 +34,7 @@ int main(int argc, char **argv)
 
 	int offset = 0;
 	uint8_t buf[8];
+	uint32_t hash = 0;
 
 	while (1) {
 		int cnt;
@@ -43,6 +44,8 @@ int main(int argc, char **argv)
 
 		if (cnt == 0)
 			break;
+
+		jenkins_mix(&hash, &buf[2], cnt);
 
 		if (offset % 2048 == 0) {
 			logm("hitting page boundary, triggering erase");
@@ -73,6 +76,20 @@ int main(int argc, char **argv)
 
 		offset += cnt;
 	}
+
+	hash = jenkins_finish(hash);
+
+	if (bl_set_pointer(fd, can_address, 0x8000800))
+		die("resetting pointer failed");
+
+	uint32_t hash_out;
+	if (bl_hash(fd, can_address, offset, &hash_out) < 0)
+		die("hashing failed");
+
+	if (hash_out != hash)
+		die("hash verification failed: Expected 0x%08x, got 0x%08x", hash, hash_out);
+	else
+		logm("flash verification successful");
 
 	buf[0] = 0x30;
 	if (can_send(fd, can_address, buf, 1) < 0)
