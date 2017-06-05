@@ -5,6 +5,8 @@
 
 #include "common.h"
 
+#define APP_START 0x8000800
+
 int parse_hex(const char *s)
 {
 	if (!strncmp(s, "0x", 2))
@@ -35,6 +37,9 @@ int main(int argc, char **argv)
 	int offset = 0;
 	uint8_t buf[8];
 	uint32_t hash = 0;
+
+	if (bl_set_pointer(fd, can_address, APP_START))
+		die("resetting pointer failed");
 
 	while (1) {
 		int cnt;
@@ -79,7 +84,7 @@ int main(int argc, char **argv)
 
 	hash = jenkins_finish(hash);
 
-	if (bl_set_pointer(fd, can_address, 0x8000800))
+	if (bl_set_pointer(fd, can_address, APP_START))
 		die("resetting pointer failed");
 
 	uint32_t hash_out;
