@@ -41,7 +41,7 @@ void __attribute__ ((naked, noreturn)) main(void)
 	FLASH_CR &= ~FLASH_CR_PG;
 
 	// reset
-	SCB_AIRCR |= SCB_AIRCR_SYSRESETREQ;
+	SCB_AIRCR = SCB_AIRCR_VECTKEY | SCB_AIRCR_SYSRESETREQ;
 	while (1)
 		;
 }
